@@ -1,11 +1,9 @@
 {
   "tokenContract": "FyB8VxxYAaVVchAgbB1kvjWdw26ovaD4ipwV1j8epump",
   "buyThresholds": {
-    "lowCap": {
-      "marketCapLimit": 50000,
-      "minBuyAmount": 100
-    },
-    "alwaysActive": [1000, 10000]
+    "minBuyUSD": 100,
+    "bigBuyUSD": 1000,
+    "whaleBuyUSD": 10000
   },
   "marketCapMilestones": [
     {
@@ -22,26 +20,38 @@
     },
     {
       "min": 500000,
-      "max": 999999999,
+      "max": 1000000,
       "step": 100000,
+      "description": "Advanced Stage"
+    },
+    {
+      "min": 1000000,
+      "max": 5000000,
+      "step": 500000,
       "description": "Mature Stage"
+    },
+    {
+      "min": 5000000,
+      "max": 999999999,
+      "step": 1000000,
+      "description": "Elite Stage"
     }
   ],
   "monitoringSettings": {
     "marketCapCheckInterval": 5000,
-    "transactionCheckInterval": 3000,
-    "enableTransactionMonitoring": false,
+    "transactionCheckInterval": 15000,
+    "enableTransactionMonitoring": true,
     "enableMilestoneMonitoring": true
   },
   "uiSettings": {
-    "notificationDuration": 2000,
+    "notificationDuration": 3000,
     "rouletteDuration": 4000,
-    "taskResultDuration": 4000,
+    "taskResultDuration": 5000,
     "enableSounds": false
   },
   "apiEndpoints": {
     "marketCap": "https://api.dexscreener.com/latest/dex/tokens/",
-    "transactions": "wss://api.mainnet-beta.solana.com",
-    "fallbackMarketCap": "https://public-api.birdeye.so/defi/token_overview?address="
+    "solPrice": "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+    "transactions": "wss://api.mainnet-beta.solana.com"
   }
 }
