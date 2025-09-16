@@ -22,17 +22,29 @@
     "Do your best impression of a crypto influencer 🎭"
   ],
   "milestoneSpecialTasks": [
-    "🎉 SPECIAL: Create a victory dance and name it after the token!",
-    "🎊 SPECIAL: Write a poem about diamond hands!",
-    "🚀 SPECIAL: Do a backflip (or attempt one safely!)",
-    "💎 SPECIAL: Call someone and tell them about your success!",
-    "🌟 SPECIAL: Plan your celebration meal for hitting this milestone!"
+    "🎉 MILESTONE SPECIAL: Create a victory dance and name it after the token!",
+    "🎊 MILESTONE SPECIAL: Write a poem about diamond hands and read it!",
+    "🚀 MILESTONE SPECIAL: Do a backflip (or attempt one safely!)",
+    "💎 MILESTONE SPECIAL: Call someone and tell them about your success!",
+    "🌟 MILESTONE SPECIAL: Plan your celebration meal for hitting this milestone!",
+    "🎯 MILESTONE SPECIAL: Predict when the next milestone will be reached!",
+    "🏆 MILESTONE SPECIAL: Thank everyone who helped reach this milestone!"
   ],
   "bigBuyTasks": [
-    "🐋 WHALE TASK: Thank the whale with a special shoutout!",
-    "💰 BIG BUY: Do the 'money dance' for 1 minute!",
-    "🎯 WHALE ALERT: Make a prediction about the next big buy!",
-    "💸 BIG MONEY: Share what you'd do with that amount!"
+    "💰 BIG BUY: Thank the buyer with a special shoutout!",
+    "🚀 BIG BUY: Do the 'money dance' for 1 minute!",
+    "🎯 BIG BUY: Make a prediction about the next big buy!",
+    "💸 BIG BUY: Share what you'd do with that amount!",
+    "📈 BIG BUY: Explain why this project deserves big investments!",
+    "🔥 BIG BUY: Start a 'LFG' chant for 30 seconds!"
+  ],
+  "whaleTasks": [
+    "🐋 WHALE ALERT: Do the whale dance (flap your arms like fins)!",
+    "🌊 WHALE TASK: Make whale sounds for 15 seconds!",
+    "💎 WHALE SPECIAL: Dedicate a song to the whale buyer!",
+    "🚀 WHALE POWER: Predict how high this whale will take us!",
+    "👑 WHALE KING: Crown yourself the whale whisperer!",
+    "🎪 WHALE SHOW: Put on a 2-minute entertainment show for the whale!"
   ],
   "taskCategories": {
     "physical": [0, 5, 8, 10, 15],
@@ -46,6 +58,7 @@
     "shuffleOrder": true,
     "useSpecialTasksForMilestones": true,
     "useBigBuyTasks": true,
-    "maxTaskLength": 100
+    "useWhaleTasks": true,
+    "maxTaskLength": 120
   }
 }
