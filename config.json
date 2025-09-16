@@ -1,0 +1,47 @@
+{
+  "tokenContract": "FyB8VxxYAaVVchAgbB1kvjWdw26ovaD4ipwV1j8epump",
+  "buyThresholds": {
+    "lowCap": {
+      "marketCapLimit": 50000,
+      "minBuyAmount": 100
+    },
+    "alwaysActive": [1000, 10000]
+  },
+  "marketCapMilestones": [
+    {
+      "min": 0,
+      "max": 100000,
+      "step": 10000,
+      "description": "Early Stage"
+    },
+    {
+      "min": 100000,
+      "max": 500000,
+      "step": 50000,
+      "description": "Growth Stage"
+    },
+    {
+      "min": 500000,
+      "max": 999999999,
+      "step": 100000,
+      "description": "Mature Stage"
+    }
+  ],
+  "monitoringSettings": {
+    "marketCapCheckInterval": 5000,
+    "transactionCheckInterval": 3000,
+    "enableTransactionMonitoring": false,
+    "enableMilestoneMonitoring": true
+  },
+  "uiSettings": {
+    "notificationDuration": 2000,
+    "rouletteDuration": 4000,
+    "taskResultDuration": 4000,
+    "enableSounds": false
+  },
+  "apiEndpoints": {
+    "marketCap": "https://api.dexscreener.com/latest/dex/tokens/",
+    "transactions": "wss://api.mainnet-beta.solana.com",
+    "fallbackMarketCap": "https://public-api.birdeye.so/defi/token_overview?address="
+  }
+}

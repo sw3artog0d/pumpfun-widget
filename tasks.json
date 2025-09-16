@@ -1,0 +1,51 @@
+{
+  "tasks": [
+    "Do 10 pushups right now! 💪",
+    "Drink a full glass of water 💧",
+    "Say something positive about the project for 30 seconds 🚀",
+    "Dance to your favorite song for 1 minute 🕺",
+    "Tell the chat your best crypto joke 😂",
+    "Do 20 jumping jacks right where you are! 🏃‍♂️",
+    "Compliment a random viewer in chat 💝",
+    "Sing the chorus of your favorite song 🎵",
+    "Do a 30-second plank challenge 🤸‍♂️",
+    "Share your crypto prediction for next week 🔮",
+    "Do 15 squats without stopping 🏋️‍♂️",
+    "Make a weird face for 10 seconds 🤪",
+    "Tell chat about your first crypto experience 📈",
+    "Do the robot dance for 30 seconds 🤖",
+    "Eat something healthy on stream 🥗",
+    "Do 10 burpees (if you're brave!) 💀",
+    "Share your favorite crypto meme 🐸",
+    "Do meditation for 1 minute in silence 🧘‍♂️",
+    "Thank your moderators and supporters 🙏",
+    "Do your best impression of a crypto influencer 🎭"
+  ],
+  "milestoneSpecialTasks": [
+    "🎉 SPECIAL: Create a victory dance and name it after the token!",
+    "🎊 SPECIAL: Write a poem about diamond hands!",
+    "🚀 SPECIAL: Do a backflip (or attempt one safely!)",
+    "💎 SPECIAL: Call someone and tell them about your success!",
+    "🌟 SPECIAL: Plan your celebration meal for hitting this milestone!"
+  ],
+  "bigBuyTasks": [
+    "🐋 WHALE TASK: Thank the whale with a special shoutout!",
+    "💰 BIG BUY: Do the 'money dance' for 1 minute!",
+    "🎯 WHALE ALERT: Make a prediction about the next big buy!",
+    "💸 BIG MONEY: Share what you'd do with that amount!"
+  ],
+  "taskCategories": {
+    "physical": [0, 5, 8, 10, 15],
+    "entertainment": [3, 7, 11, 13, 19],
+    "community": [1, 6, 12, 16, 18],
+    "crypto": [4, 9, 16],
+    "wellness": [1, 14, 17]
+  },
+  "settings": {
+    "allowDuplicates": false,
+    "shuffleOrder": true,
+    "useSpecialTasksForMilestones": true,
+    "useBigBuyTasks": true,
+    "maxTaskLength": 100
+  }
+}
