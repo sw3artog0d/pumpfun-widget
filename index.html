@@ -68,6 +68,11 @@
             box-shadow: 0 0 40px rgba(0, 255, 136, 0.6);
         }
 
+        .transaction-notification.big-buy {
+            background: linear-gradient(135deg, #ffd700, #ff6b35);
+            box-shadow: 0 0 40px rgba(255, 215, 0, 0.6);
+        }
+
         .transaction-notification.show {
             transform: translate(-50%, -50%) scale(1);
             opacity: 1;
@@ -93,6 +98,12 @@
             margin-bottom: 15px;
             font-family: monospace;
             word-break: break-all;
+        }
+
+        .transaction-details {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 10px;
         }
 
         /* Roulette Wheel */
@@ -224,8 +235,6 @@
             line-height: 1.4;
         }
 
-        /* Controls - removed, now only console access */
-
         /* Status */
         .status {
             position: absolute;
@@ -245,6 +254,10 @@
 
         .status.error {
             border-left: 4px solid #ff4444;
+        }
+
+        .status.monitoring {
+            border-left: 4px solid #ffd700;
         }
 
         /* Milestone Progress */
@@ -274,6 +287,20 @@
             background: linear-gradient(90deg, #00ff88, #0066ff);
             transition: width 0.5s ease;
         }
+
+        /* Transaction Monitor Info */
+        .transaction-monitor {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 11px;
+            z-index: 100;
+            max-width: 200px;
+        }
     </style>
 </head>
 <body>
@@ -285,10 +312,10 @@
 
     <!-- Transaction Notification -->
     <div class="transaction-notification" id="transactionNotification">
-        <div class="transaction-amount" id="transactionAmount">5 SOL</div>
+        <div class="transaction-amount" id="transactionAmount">$500</div>
         <div class="transaction-text" id="transactionText">BIG BUY DETECTED!</div>
         <div class="transaction-user" id="transactionUser">User: 7xKq...Mx9A</div>
-        <div style="font-size: 14px; opacity: 0.8;">Time for a challenge...</div>
+        <div class="transaction-details" id="transactionDetails">5 SOL • Time for a challenge...</div>
     </div>
 
     <!-- Roulette Wheel -->
@@ -327,13 +354,24 @@
         <div style="font-size: 11px; opacity: 0.6;" id="progressText">$0 / $10,000</div>
     </div>
 
+    <!-- Transaction Monitor -->
+    <div class="transaction-monitor" id="transactionMonitor">
+        <div>🔍 Transaction Monitor</div>
+        <div style="margin-top: 5px; opacity: 0.8;">
+            <div>SOL Price: <span id="solPrice">$0</span></div>
+            <div>Min Buy: <span id="minBuyUSD">$100</span></div>
+            <div>Last Check: <span id="lastCheck">--:--</span></div>
+        </div>
+    </div>
+
     <script>
-        // Default configuration - будет заменен на данные из config.json
+        // Default configuration
         let config = {
             tokenContract: 'FyB8VxxYAaVVchAgbB1kvjWdw26ovaD4ipwV1j8epump',
             buyThresholds: {
-                lowCap: { marketCapLimit: 50000, minBuyAmount: 5 }, // 5 SOL при капе < 50k
-                alwaysActive: [50, 500] // 50 SOL и 500 SOL всегда активны
+                minBuyUSD: 100, // Минимальная сумма покупки в USD
+                bigBuyUSD: 1000, // Крупная покупка в USD
+                whaleBuyUSD: 10000 // Покупка кита в USD
             },
             marketCapMilestones: [
                 { min: 0, max: 100000, step: 10000, description: "Early Stage" },
@@ -344,9 +382,15 @@
             ],
             monitoringSettings: {
                 marketCapCheckInterval: 5000,
-                transactionCheckInterval: 3000,
-                enableTransactionMonitoring: false,
+                transactionCheckInterval: 10000,
+                enableTransactionMonitoring: true,
                 enableMilestoneMonitoring: true
+            },
+            uiSettings: {
+                notificationDuration: 3000,
+                rouletteDuration: 4000,
+                taskResultDuration: 5000,
+                enableSounds: false
             }
         };
 
@@ -361,14 +405,17 @@
         let specialTasks = {
             milestone: [],
             bigBuy: [],
+            whale: [],
             regular: []
         };
 
         // State
         let currentMarketCap = 0;
-        let lastCheckedCap = 0;
+        let solPrice = 0;
         let nextMilestone = 10000;
         let isAnimating = false;
+        let transactionMonitorActive = false;
+        let lastTransactions = new Set(); // Для избежания дублирования
 
         // DOM Elements
         const marketCapElement = document.getElementById('marketcap');
@@ -378,14 +425,30 @@
         const taskResult = document.getElementById('taskResult');
         const statusElement = document.getElementById('status');
         const milestoneProgress = document.getElementById('milestoneProgress');
+        const transactionMonitor = document.getElementById('transactionMonitor');
 
         // Initialize
         init();
 
         async function init() {
             console.log('🚀 Advanced PumpFun Widget initialized');
+            
+            // Load configs first
+            await loadConfig();
+            await loadTasks();
+            
             updateTaskSegments();
+            await fetchSOLPrice();
+            updateMonitorDisplay();
             startMonitoring();
+            
+            // Expose test functions to global scope
+            window.testBuy = testBuy;
+            window.testMilestone = testMilestone;
+            window.testRoulette = testRoulette;
+            window.testTransaction = testTransaction;
+            
+            console.log('Available test functions: testBuy(usdAmount), testMilestone(), testRoulette(), testTransaction()');
         }
 
         function updateTaskSegments() {
@@ -400,7 +463,26 @@
             }
         }
 
-        async function fetchMarketCap() {
+        // Получение цены SOL
+        async function fetchSOLPrice() {
+            try {
+                const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+                const data = await response.json();
+                if (data.solana && data.solana.usd) {
+                    solPrice = data.solana.usd;
+                    console.log(`SOL Price updated: $${solPrice}`);
+                    return solPrice;
+                }
+            } catch (error) {
+                console.error('Error fetching SOL price:', error);
+                // Fallback цена
+                solPrice = 150;
+            }
+            return solPrice;
+        }
+
+        // Получение цены токена
+        async function fetchTokenPrice() {
             try {
                 const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${config.tokenContract}`);
                 const data = await response.json();
@@ -412,14 +494,30 @@
                         return currentLiq > bestLiq ? current : best;
                     });
                     
-                    const marketCap = parseFloat(bestPair.marketCap || bestPair.fdv || 0);
-                    return marketCap;
+                    return {
+                        priceUsd: parseFloat(bestPair.priceUsd || 0),
+                        marketCap: parseFloat(bestPair.marketCap || bestPair.fdv || 0)
+                    };
                 }
-                return 0;
             } catch (error) {
-                console.error('Error fetching market cap:', error);
-                return 0;
+                console.error('Error fetching token price:', error);
             }
+            return { priceUsd: 0, marketCap: 0 };
+        }
+
+        async function fetchMarketCap() {
+            const tokenData = await fetchTokenPrice();
+            return tokenData.marketCap;
+        }
+
+        // Конвертация токенов в USD
+        function convertToUSD(amount, token) {
+            if (token === 'SOL' || token === 'sol') {
+                return amount * solPrice;
+            }
+            // Для других токенов можно добавить дополнительную логику
+            // Пока предполагаем, что все остальные суммы уже в USD
+            return amount;
         }
 
         function formatMarketCap(value) {
@@ -431,6 +529,16 @@
                 return `$${(value / 1000).toFixed(2)}K`;
             } else {
                 return `$${value.toFixed(2)}`;
+            }
+        }
+
+        function formatCurrency(value) {
+            if (value >= 1000000) {
+                return `$${(value / 1000000).toFixed(2)}M`;
+            } else if (value >= 1000) {
+                return `$${(value / 1000).toFixed(1)}K`;
+            } else {
+                return `$${value.toFixed(0)}`;
             }
         }
 
@@ -462,6 +570,27 @@
             nextMilestone = milestone;
         }
 
+        function updateMonitorDisplay() {
+            document.getElementById('solPrice').textContent = `$${solPrice.toFixed(0)}`;
+            document.getElementById('minBuyUSD').textContent = formatCurrency(config.buyThresholds.minBuyUSD);
+            document.getElementById('lastCheck').textContent = new Date().toLocaleTimeString('ru-RU', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Определение типа покупки по сумме в USD
+        function getBuyType(usdAmount) {
+            if (usdAmount >= config.buyThresholds.whaleBuyUSD) {
+                return 'whale';
+            } else if (usdAmount >= config.buyThresholds.bigBuyUSD) {
+                return 'bigBuy';
+            } else if (usdAmount >= config.buyThresholds.minBuyUSD) {
+                return 'regular';
+            }
+            return null; // Не достаточно для уведомления
+        }
+
         async function checkForMilestone(newMarketCap, oldMarketCap) {
             const oldMilestone = getNextMilestone(oldMarketCap);
             const newMilestone = getNextMilestone(newMarketCap);
@@ -469,7 +598,7 @@
             if (newMarketCap >= oldMilestone && oldMarketCap < oldMilestone) {
                 console.log(`🎯 Milestone reached: ${formatMarketCap(oldMilestone)}`);
                 await showMilestoneNotification(formatMarketCap(oldMilestone));
-                setTimeout(() => spinRoulette('milestone'), 2500);
+                setTimeout(() => spinRoulette('milestone'), 3500);
             }
         }
 
@@ -481,6 +610,7 @@
             document.getElementById('transactionAmount').textContent = amount;
             document.getElementById('transactionText').textContent = 'MILESTONE REACHED!';
             document.getElementById('transactionUser').textContent = `Market Cap: ${amount}`;
+            document.getElementById('transactionDetails').textContent = 'Congratulations! 🎉';
             
             notification.classList.add('milestone', 'show');
             
@@ -491,34 +621,150 @@
                         isAnimating = false;
                         resolve();
                     }, 500);
-                }, 2000);
+                }, config.uiSettings?.notificationDuration || 3000);
             });
         }
 
-        async function showBuyNotification(amount, userAddress) {
+        async function showBuyNotification(usdAmount, tokenAmount = null, tokenSymbol = 'SOL', userAddress = null) {
             if (isAnimating) return;
             isAnimating = true;
             
+            const buyType = getBuyType(usdAmount);
+            if (!buyType) return;
+
             const notification = document.getElementById('transactionNotification');
-            document.getElementById('transactionAmount').textContent = `${amount} SOL`;
-            document.getElementById('transactionText').textContent = 'BIG BUY DETECTED!';
-            document.getElementById('transactionUser').textContent = `User: ${userAddress.slice(0, 4)}...${userAddress.slice(-4)}`;
             
-            notification.classList.add('show');
+            // Определяем текст уведомления
+            let notificationText = '';
+            let notificationClass = 'big-buy';
+            
+            if (buyType === 'whale') {
+                notificationText = '🐋 WHALE DETECTED!';
+                notificationClass = 'big-buy whale';
+            } else if (buyType === 'bigBuy') {
+                notificationText = '💰 BIG BUY DETECTED!';
+                notificationClass = 'big-buy';
+            } else {
+                notificationText = '🚀 BUY DETECTED!';
+                notificationClass = 'big-buy';
+            }
+            
+            document.getElementById('transactionAmount').textContent = formatCurrency(usdAmount);
+            document.getElementById('transactionText').textContent = notificationText;
+            document.getElementById('transactionUser').textContent = userAddress ? `User: ${userAddress}` : 'New Purchase';
+            
+            // Показываем детали транзакции
+            let details = '';
+            if (tokenAmount && tokenSymbol) {
+                details = `${tokenAmount.toFixed(2)} ${tokenSymbol} • `;
+            }
+            details += 'Time for a challenge...';
+            document.getElementById('transactionDetails').textContent = details;
+            
+            notification.className = `transaction-notification ${notificationClass} show`;
             
             return new Promise(resolve => {
                 setTimeout(() => {
-                    notification.classList.remove('show');
+                    notification.classList.remove('show', 'big-buy', 'whale');
                     setTimeout(() => {
                         isAnimating = false;
                         resolve();
                     }, 500);
-                }, 2000);
+                }, config.uiSettings?.notificationDuration || 3000);
             });
+        }
+
+        // Симуляция мониторинга транзакций
+        async function startTransactionMonitoring() {
+            if (!config.monitoringSettings.enableTransactionMonitoring) return;
+            
+            transactionMonitorActive = true;
+            console.log('🔍 Transaction monitoring started');
+            
+            setInterval(async () => {
+                if (isAnimating) return;
+                
+                // Обновляем цену SOL периодически
+                await fetchSOLPrice();
+                updateMonitorDisplay();
+                
+                // Симуляция обнаружения транзакции (в реальном приложении здесь был бы WebSocket Solana)
+                if (Math.random() < 0.1) { // 10% шанс симуляции транзакции
+                    const mockTransaction = generateMockTransaction();
+                    await processTransaction(mockTransaction);
+                }
+                
+                statusElement.className = 'status monitoring';
+                statusElement.textContent = '🟡 Monitoring transactions...';
+                
+            }, config.monitoringSettings.transactionCheckInterval || 10000);
+        }
+
+        // Генерация мок-транзакции для тестирования
+        function generateMockTransaction() {
+            const amounts = [150, 250, 500, 1000, 2500, 5000, 10000, 25000];
+            const usdAmount = amounts[Math.floor(Math.random() * amounts.length)];
+            const solAmount = usdAmount / solPrice;
+            
+            return {
+                usdAmount,
+                tokenAmount: solAmount,
+                tokenSymbol: 'SOL',
+                userAddress: generateRandomAddress(),
+                signature: generateRandomSignature()
+            };
+        }
+
+        function generateRandomAddress() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz123456789';
+            let result = '';
+            for (let i = 0; i < 4; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            result += '...';
+            for (let i = 0; i < 4; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        function generateRandomSignature() {
+            return Math.random().toString(36).substring(7);
+        }
+
+        // Обработка транзакции
+        async function processTransaction(transaction) {
+            const { usdAmount, tokenAmount, tokenSymbol, userAddress, signature } = transaction;
+            
+            // Проверяем, не обрабатывали ли мы уже эту транзакцию
+            if (lastTransactions.has(signature)) return;
+            lastTransactions.add(signature);
+            
+            // Очищаем старые транзакции (храним только последние 100)
+            if (lastTransactions.size > 100) {
+                const first = lastTransactions.values().next().value;
+                lastTransactions.delete(first);
+            }
+            
+            const buyType = getBuyType(usdAmount);
+            if (!buyType) return;
+            
+            console.log(`💰 Buy detected: ${formatCurrency(usdAmount)} (${tokenAmount?.toFixed(2)} ${tokenSymbol})`);
+            
+            // Показываем уведомление
+            await showBuyNotification(usdAmount, tokenAmount, tokenSymbol, userAddress);
+            
+            // Запускаем рулетку после уведомления
+            setTimeout(() => spinRoulette(buyType), 3500);
         }
 
         async function startMonitoring() {
             const interval = config.monitoringSettings?.marketCapCheckInterval || 5000;
+            
+            // Start transaction monitoring if enabled
+            if (config.monitoringSettings?.enableTransactionMonitoring) {
+                await startTransactionMonitoring();
+            }
             
             setInterval(async () => {
                 if (isAnimating) return;
@@ -535,8 +781,10 @@
                     currentMarketCap = newMarketCap;
                     updateMilestoneProgress();
                     
-                    statusElement.className = 'status active';
-                    statusElement.textContent = `🟢 Monitoring ${getCurrentMilestoneConfig(newMarketCap).description || 'Active'}`;
+                    if (!transactionMonitorActive) {
+                        statusElement.className = 'status active';
+                        statusElement.textContent = `🟢 Monitoring ${getCurrentMilestoneConfig(newMarketCap).description || 'Active'}`;
+                    }
                 } else {
                     statusElement.className = 'status error';
                     statusElement.textContent = '🔴 API Error';
@@ -544,14 +792,23 @@
             }, interval);
         }
 
-        async function showTransactionNotification(amount, text) {
-            // This function is now split into showBuyNotification and showMilestoneNotification
-            console.log('Legacy function called - use showBuyNotification or showMilestoneNotification instead');
-        }
-
         function getRandomTask(type = 'regular') {
-            const availableTasks = specialTasks[type] || tasks;
-            if (availableTasks.length === 0) return tasks[0];
+            let availableTasks;
+            
+            switch(type) {
+                case 'milestone':
+                    availableTasks = specialTasks.milestone.length > 0 ? specialTasks.milestone : tasks;
+                    break;
+                case 'whale':
+                    availableTasks = specialTasks.whale.length > 0 ? specialTasks.whale : specialTasks.bigBuy;
+                    if (availableTasks.length === 0) availableTasks = tasks;
+                    break;
+                case 'bigBuy':
+                    availableTasks = specialTasks.bigBuy.length > 0 ? specialTasks.bigBuy : tasks;
+                    break;
+                default:
+                    availableTasks = specialTasks.regular.length > 0 ? specialTasks.regular : tasks;
+            }
             
             return availableTasks[Math.floor(Math.random() * availableTasks.length)];
         }
@@ -573,7 +830,7 @@
             rouletteWheel.style.transform = `rotate(${targetRotation}deg)`;
             
             const duration = config.uiSettings?.rouletteDuration || 4000;
-            const resultDuration = config.uiSettings?.taskResultDuration || 4000;
+            const resultDuration = config.uiSettings?.taskResultDuration || 5000;
             
             setTimeout(() => {
                 showTaskResult(selectedTask, taskType);
@@ -589,33 +846,56 @@
         }
 
         function showTaskResult(task, type = 'regular') {
-            const title = type === 'milestone' ? '🎉 MILESTONE TASK!' :
-                         type === 'bigBuy' ? '🐋 WHALE TASK!' : 
-                         '🎯 CHALLENGE SELECTED!';
+            let title;
+            switch(type) {
+                case 'milestone':
+                    title = '🎉 MILESTONE TASK!';
+                    break;
+                case 'whale':
+                    title = '🐋 WHALE TASK!';
+                    break;
+                case 'bigBuy':
+                    title = '💰 BIG BUY TASK!';
+                    break;
+                default:
+                    title = '🎯 CHALLENGE SELECTED!';
+            }
             
             document.getElementById('taskTitle').textContent = title;
             document.getElementById('taskDescription').textContent = task;
             taskResult.classList.add('show');
             
-            const duration = config.uiSettings?.taskResultDuration || 4000;
+            const duration = config.uiSettings?.taskResultDuration || 5000;
             setTimeout(() => {
                 taskResult.classList.remove('show');
             }, duration);
         }
 
         // Test functions
-        async function testTransaction() {
-            await showTransactionNotification('$1,234', 'BIG BUY DETECTED!');
-            setTimeout(() => spinRoulette('bigBuy'), 500);
+        async function testBuy(usdAmount = 500) {
+            console.log(`Testing buy notification for ${usdAmount}`);
+            const solAmount = usdAmount / solPrice;
+            await showBuyNotification(usdAmount, solAmount, 'SOL', generateRandomAddress());
+            setTimeout(() => {
+                const buyType = getBuyType(usdAmount);
+                spinRoulette(buyType || 'regular');
+            }, 3500);
         }
 
-        async function testMilestone() {
-            await showTransactionNotification('$50K', 'MILESTONE REACHED!');
-            setTimeout(() => spinRoulette('milestone'), 500);
+        async function testMilestone(amount = '$50K') {
+            console.log(`Testing milestone notification for ${amount}`);
+            await showMilestoneNotification(amount);
+            setTimeout(() => spinRoulette('milestone'), 3500);
         }
 
-        function testRoulette() {
-            spinRoulette('regular');
+        function testRoulette(type = 'regular') {
+            console.log(`Testing roulette with type: ${type}`);
+            spinRoulette(type);
+        }
+
+        // Legacy function for compatibility
+        async function testTransaction(usdAmount = 1000) {
+            await testBuy(usdAmount);
         }
 
         // Load custom config if available
@@ -625,7 +905,15 @@
                 if (!response.ok) throw new Error('Config not found');
                 
                 const customConfig = await response.json();
-                config = { ...config, ...customConfig };
+                
+                // Merge configs deeply
+                config = {
+                    ...config,
+                    ...customConfig,
+                    buyThresholds: { ...config.buyThresholds, ...(customConfig.buyThresholds || {}) },
+                    monitoringSettings: { ...config.monitoringSettings, ...(customConfig.monitoringSettings || {}) },
+                    uiSettings: { ...config.uiSettings, ...(customConfig.uiSettings || {}) }
+                };
                 
                 console.log('✅ Custom config loaded:', config);
                 updateMilestoneProgress(); // Refresh with new config
@@ -655,21 +943,23 @@
                 if (tasksData.bigBuyTasks) {
                     specialTasks.bigBuy = tasksData.bigBuyTasks;
                 }
+
+                if (tasksData.whaleTasks) {
+                    specialTasks.whale = tasksData.whaleTasks;
+                }
                 
                 updateTaskSegments();
                 console.log('✅ Custom tasks loaded');
                 console.log(`- Regular tasks: ${specialTasks.regular.length}`);
                 console.log(`- Milestone tasks: ${specialTasks.milestone.length}`);
                 console.log(`- Big buy tasks: ${specialTasks.bigBuy.length}`);
+                console.log(`- Whale tasks: ${specialTasks.whale.length}`);
                 
             } catch (error) {
                 console.log('⚠️ Using default tasks - tasks.json not found or invalid');
                 specialTasks.regular = tasks;
             }
         }
-
-        // Load configs on startup
-        loadConfig().then(() => loadTasks());
     </script>
 </body>
 </html>
